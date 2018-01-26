@@ -231,24 +231,30 @@ class GooglePlaces(object):
 
     def nearby_search(self, language=lang.ENGLISH, keyword=None, location=None,
                lat_lng=None, name=None, radius=3200, rankby=ranking.PROMINENCE,
-               sensor=False, type=None, types=[], pagetoken=None):
+               sensor=False, type=None, types=None, pagetoken=None):
         """Perform a nearby search using the Google Places API.
 
         One of either location, lat_lng or pagetoken are required, the rest of 
         the keyword arguments are optional.
 
         keyword arguments:
-        keyword  -- A term to be matched against all available fields, including
-                    but not limited to name, type, and address (default None)
+        keyword  -- A term to be matched against all available fields,
+                    including but not limited to name, type,
+                    and address (default None)
         location -- A human readable location, e.g 'London, England'
                     (default None)
         language -- The language code, indicating in which language the
-                    results should be returned, if possible. (default lang.ENGLISH)
+                    results should be returned, if possible.
+                    (default lang.ENGLISH)
         lat_lng  -- A dict containing the following keys: lat, lng
                     (default None)
-        name     -- A term to be matched against the names of the Places.
-                    Results will be restricted to those containing the passed
-                    name value. (default None)
+        name     -- A term to be matched against all content that Google has
+                    indexed for this place. Equivalent to keyword. The name
+                    field is no longer restricted to place names.
+                    Values in this field are combined with values in the
+                    keyword field and passed as part of the same search string.
+                    We recommend using only the keyword parameter for all
+                    search terms. (default None)
         radius   -- The radius (in meters) around the location/lat_lng to
                     restrict the search to. The maximum is 50000 meters.
                     (default 3200)
@@ -257,24 +263,28 @@ class GooglePlaces(object):
                     (imply no radius argument).
         sensor   -- Indicates whether or not the Place request came from a
                     device using a location sensor (default False).
-        type     -- Optional type param used to indicate place category.
-        types    -- An optional list of types, restricting the results to
-                    Places (default []). If there is only one item the request
-                    will be send as type param.
+        type     -- Restricts the results to places matching the specified
+                    type. Only one type may be specified (if more than one
+                    type is provided, all types following the first entry are
+                    ignored).
+        types    -- Deprecated. List of category not working anymore. If used,
+                    it wil be transform in type using the first object of the
+                    list
         pagetoken-- Optional parameter to force the search result to return the next
-                    20 results from a previously run search. Setting this parameter 
-                    will execute a search with the same parameters used previously. 
+                    20 results from a previously run search. Setting this parameter
+                    will execute a search with the same parameters used previously.
                     (default None)
         """
-        if location is None and lat_lng is None and pagetoken is None:
+        if all(v is None for v in [location, lat_lng, pagetoken]):
             raise ValueError('One of location, lat_lng or pagetoken must be passed in.')
         if rankby == 'distance':
             # As per API docs rankby == distance:
             #  One or more of keyword, name, or types is required.
-            if keyword is None and types == [] and name is None:
-                raise ValueError('When rankby = googleplaces.ranking.DISTANCE, ' +
-                                 'name, keyword or types kwargs ' +
-                                 'must be specified.')
+            if all(v is None for v in [keyword, types, type, name]):
+                raise ValueError(
+                    "When rankby = googleplaces.ranking.DISTANCE,"
+                    "name, keyword or type kwargs must be specified."
+                )
         self._sensor = sensor
         radius = (radius if radius <= GooglePlaces.MAXIMUM_SEARCH_RADIUS
                   else GooglePlaces.MAXIMUM_SEARCH_RADIUS)
@@ -306,10 +316,10 @@ class GooglePlaces(object):
         return GooglePlacesSearchResult(self, places_response)
 
     def text_search(self, query=None, language=lang.ENGLISH, lat_lng=None,
-                    radius=3200, type=None, types=[], location=None, pagetoken=None):
+                    radius=3200, type=None, types=None, location=None, pagetoken=None):
         """Perform a text search using the Google Places API.
 
-        Only the one of the query or pagetoken kwargs are required, the rest of the 
+        Only the one of the query or pagetoken kwargs are required, the rest of the
         keyword arguments are optional.
 
         keyword arguments:
@@ -318,8 +328,8 @@ class GooglePlaces(object):
         location -- A human readable location, e.g 'London, England'
                     (default None)
         pagetoken-- Optional parameter to force the search result to return the next
-                    20 results from a previously run search. Setting this parameter 
-                    will execute a search with the same parameters used previously. 
+                    20 results from a previously run search. Setting this parameter
+                    will execute a search with the same parameters used previously.
                     (default None)
         radius   -- The radius (in meters) around the location/lat_lng to
                     restrict the search to. The maximum is 50000 meters.
